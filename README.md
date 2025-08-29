@@ -78,9 +78,13 @@ Sinon, afficher l’usage correct :
 -Langage autorisé : Go
 
 -Techniques attendues :
+
     *Goroutines
+
     *Channels
+
     *Mutexes
+
     *Gestion des erreurs autant du côté serveur que du côté client.
 
 ### 📦 Packages autorisés :
