@@ -1,3 +1,5 @@
+// MARK: Reste à faire.
+// Limiter à 10 connexions.
 package main
 
 import (
@@ -7,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 )
 
 const (
@@ -180,7 +183,8 @@ func messageHandler() {
 		// Diffuser le message à tous les clients connectés
 		clientsMutex.Lock()
 		for client := range clients {
-			_, err := client.Write([]byte(fmt.Sprintf("[%s]: %s", msg.ComeFrom, msg.Content)))
+			timeLog := time.Now().Format("[2006-01-02 15:04:05]")
+			_, err := client.Write([]byte(fmt.Sprintf("%s[%s]: %s", timeLog, msg.ComeFrom, msg.Content)))
 			if err != nil {
 				// Si l'écriture échoue, supprimer le client de la struct.
 				delete(clients, client)
