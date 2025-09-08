@@ -87,14 +87,25 @@ func server() {
 func handleConnexion(connexions net.Conn) {
 
 	// Demande du nom de l'utilisateur.
-	_, err := connexions.Write([]byte("Bienvenue ! Veuillez saisir votre nom : \n"))
-	gestionDesErreurs(err)
+	userName := nameWithoutBlank(connexions)
+	/* 	for {
+		// Demande du nom de l'utilisateur.
+		_, err := connexions.Write([]byte("Bienvenue ! Veuillez saisir votre nom : \n"))
+		gestionDesErreurs(err)
+		// Lecture du nom de l'utilisateur.
+		name, err := connexions.Read(nameBuffer)
+		gestionDesErreurs(err)
 
-	// Lecture du nom de l'utilisateur.
-	nameBuffer := make([]byte, 1024)
-	name, err := connexions.Read(nameBuffer)
-	gestionDesErreurs(err)
-	userName := strings.TrimSpace(string(nameBuffer[:name]))
+		userName := strings.TrimSpace(string(nameBuffer[:name]))
+		fmt.Println(userName)
+		if userName != "" { // Si Nom, non vide, sortie de la boucle For.
+			break
+		}
+		connexions.Write([]byte("Votre patronyme ne puis être sans caractère, veuillez retenter votre essais."))
+	} */
+	// name, err := connexions.Read(nameBuffer)
+	// gestionDesErreurs(err)
+	// userName := strings.TrimSpace(string(nameBuffer[:name]))
 	fmt.Printf("Pour %s, acquisition du nom : %s \n", connexions.RemoteAddr().String(), userName)
 
 	// Stockage des noms des utilisateurs.
@@ -134,6 +145,29 @@ func handleConnexion(connexions net.Conn) {
 		// Envoyer le message dans le canal pour diffusion
 		channels <- Message{ComeFrom: userNames[connexions], Content: content}
 	}
+}
+
+// Interdiction de Nom Vide pour l'utilisateur.
+func nameWithoutBlank(connexions net.Conn) string {
+	var userName string
+	for {
+		nameBuffer := make([]byte, 1024)
+
+		// Demande du nom de l'utilisateur.
+		_, err := connexions.Write([]byte("Bienvenue ! Veuillez saisir votre nom : \n"))
+		gestionDesErreurs(err)
+		// Lecture du nom de l'utilisateur.
+		name, err := connexions.Read(nameBuffer)
+		gestionDesErreurs(err)
+
+		userName = strings.TrimSpace(string(nameBuffer[:name]))
+		fmt.Println(userName)
+		if userName != "" { // Si Nom, non vide, sortie de la boucle For.
+			break
+		}
+		connexions.Write([]byte("Votre patronyme ne puis être sans caractère, veuillez retenter votre essais."))
+	}
+	return userName
 }
 
 // Gestionnaire de messages qui diffuse les messages à tous les clients
