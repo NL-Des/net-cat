@@ -33,6 +33,9 @@ var ( // Permet d'éviter les appels de variables entre fonctions.
 	err  error
 )
 
+// Historique des conversations que chaque nouvel arrivant reçoit à la connexion.
+var historique []Message
+
 func main() {
 	go messageHandler()
 	server()
@@ -101,6 +104,14 @@ func handleConnexion(connexions net.Conn) {
 
 	collectiveMessageConnexion(userName)
 
+	// Envoi de l'historique des conversations au nouvel arrivant.
+	clientsMutex.Lock()
+	for _, msg := range historique {
+		_, err := connexions.Write([]byte(fmt.Sprintf("[%s]: %s\n", msg.ComeFrom, msg.Content)))
+		gestionDesErreurs(err)
+	}
+	clientsMutex.Unlock()
+
 	// Retire le client de la liste quand il se déconnecte.
 	defer func() {
 		fmt.Printf("Client déconnecté : %s\n", userName)
@@ -130,6 +141,7 @@ func messageHandler() {
 	for {
 		msg := <-channels
 		fmt.Printf("[%s] a envoyé : %s", msg.ComeFrom, msg.Content)
+		historique = append(historique, msg) // Pour archiver les conversations.
 
 		// Diffuser le message à tous les clients connectés
 		clientsMutex.Lock()
@@ -151,18 +163,18 @@ func collectiveMessageConnexion(userName string) {
 	defer clientsMutex.Unlock()
 
 	for client := range clients {
-		_, err := client.Write([]byte(fmt.Sprintf("[Serveur] : Veuillez acceuillir comme il se le doit : %s \n", userName)))
+		_, err := client.Write([]byte(fmt.Sprintf("[Serveur] : Veuillez accueillir comme il se le doit : %s \n", userName)))
 		gestionDesErreurs(err)
 	}
 }
 
-// Envoi du message collectif d'accueil.
+// Envoi du message collectif de départ.
 func collectiveMessageDeconnexion(userName string) {
 	clientsMutex.Lock()
 	defer clientsMutex.Unlock()
 
 	for client := range clients {
-		_, err := client.Write([]byte(fmt.Sprintf("[Serveur] : Que nenni ?! Un folâtre osa partir ! Diable, en voilà un apache : %s \n", userName)))
+		_, err := client.Write([]byte(fmt.Sprintf("[Serveur] : Que nenni ?! Un folâtre osa partir ! Diable, en voilà un apache. Que son nom soit connu de tous pour sa vilenie : %s \n", userName)))
 		gestionDesErreurs(err)
 	}
 }
