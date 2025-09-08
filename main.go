@@ -83,17 +83,8 @@ func server() {
 // Gestion des connexions.
 func handleConnexion(connexions net.Conn) {
 
-	defer func() {
-		// Retirer le client de la liste quand il se déconnecte
-		clientsMutex.Lock()
-		delete(clients, connexions)
-		clientsMutex.Unlock()
-		connexions.Close()
-		fmt.Printf("Client déconnecté : %s\n", connexions.RemoteAddr().String())
-	}()
-
 	// Demande du nom de l'utilisateur.
-	_, err := connexions.Write([]byte("Bienvenue ! Veuillez saisir votre nom. \n"))
+	_, err := connexions.Write([]byte("Bienvenue ! Veuillez saisir votre nom : \n"))
 	gestionDesErreurs(err)
 
 	// Lecture du nom de l'utilisateur.
@@ -107,6 +98,18 @@ func handleConnexion(connexions net.Conn) {
 	clientsMutex.Lock()
 	userNames[connexions] = userName
 	clientsMutex.Unlock()
+
+	collectiveMessage(userName)
+
+	// Retire le client de la liste quand il se déconnecte.
+	defer func() {
+		fmt.Printf("Client déconnecté : %s\n", userName)
+		clientsMutex.Lock()
+		delete(clients, connexions)
+		delete(userNames, connexions)
+		clientsMutex.Unlock()
+		connexions.Close()
+	}()
 
 	// Boucle de réception des messages.
 	byteMessage := make([]byte, 1024)
@@ -138,5 +141,16 @@ func messageHandler() {
 			}
 		}
 		clientsMutex.Unlock()
+	}
+}
+
+// Envoi du message collectif d'accueil.
+func collectiveMessage(userName string) {
+	clientsMutex.Lock()
+	defer clientsMutex.Unlock()
+
+	for client := range clients {
+		_, err := client.Write([]byte(fmt.Sprintf("[Serveur] : Veuillez acceuillir comme il se le doit : %s \n", userName)))
+		gestionDesErreurs(err)
 	}
 }
