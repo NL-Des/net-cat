@@ -13,7 +13,7 @@ const (
 	IP = "127.0.0.1"
 )
 
-// Map pour stocker toutes les connexions actives
+// Map pour stocker toutes les connexions actives (IP, Noms)
 var clients = make(map[net.Conn]bool)
 var userNames = make(map[net.Conn]string)
 var clientsMutex sync.Mutex
@@ -99,7 +99,7 @@ func handleConnexion(connexions net.Conn) {
 	userNames[connexions] = userName
 	clientsMutex.Unlock()
 
-	collectiveMessage(userName)
+	collectiveMessageConnexion(userName)
 
 	// Retire le client de la liste quand il se déconnecte.
 	defer func() {
@@ -109,6 +109,7 @@ func handleConnexion(connexions net.Conn) {
 		delete(userNames, connexions)
 		clientsMutex.Unlock()
 		connexions.Close()
+		collectiveMessageDeconnexion(userName)
 	}()
 
 	// Boucle de réception des messages.
@@ -145,12 +146,23 @@ func messageHandler() {
 }
 
 // Envoi du message collectif d'accueil.
-func collectiveMessage(userName string) {
+func collectiveMessageConnexion(userName string) {
 	clientsMutex.Lock()
 	defer clientsMutex.Unlock()
 
 	for client := range clients {
 		_, err := client.Write([]byte(fmt.Sprintf("[Serveur] : Veuillez acceuillir comme il se le doit : %s \n", userName)))
+		gestionDesErreurs(err)
+	}
+}
+
+// Envoi du message collectif d'accueil.
+func collectiveMessageDeconnexion(userName string) {
+	clientsMutex.Lock()
+	defer clientsMutex.Unlock()
+
+	for client := range clients {
+		_, err := client.Write([]byte(fmt.Sprintf("[Serveur] : Que nenni ?! Un folâtre osa partir ! Diable, en voilà un apache : %s \n", userName)))
 		gestionDesErreurs(err)
 	}
 }
