@@ -1,4 +1,4 @@
-package main
+package server
 
 import (
 	"bufio"
@@ -13,7 +13,7 @@ import (
 // Explication : https://devopssec.fr/article/channels-golang
 // utiliser Mutexes
 // Explications : cela sert à verrouiller l'accès à une ressource commune.
-// Solutions ? https://devopssec.fr/article/tp-creer-application-de-chat-golang#begin-article-section
+// tuto ? https://devopssec.fr/article/tp-creer-application-de-chat-golang#begin-article-section
 // Ressources autres : https://www.commandlinux.com/man-page/man1/nc.1.html
 // }
 
