@@ -164,14 +164,11 @@ func messageHandler() {
 		// Diffuser le message à tous les clients connectés
 		clientsMutex.Lock()
 		for client := range clients {
-			// Ne pas renvoyer le message à l'expéditeur
-			if client.RemoteAddr().String() != msg.ComeFrom {
-				_, err := client.Write([]byte(fmt.Sprintf("[%s]: %s", msg.ComeFrom, msg.Content)))
-				if err != nil {
-					// Si l'écriture échoue, supprimer le client
-					delete(clients, client)
-					client.Close()
-				}
+			_, err := client.Write([]byte(fmt.Sprintf("[%s]: %s", msg.ComeFrom, msg.Content)))
+			if err != nil {
+				// Si l'écriture échoue, supprimer le client
+				delete(clients, client)
+				client.Close()
 			}
 		}
 		clientsMutex.Unlock()
