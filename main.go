@@ -1,6 +1,6 @@
 // MARK: Reste à faire.
-// Changer la commande de lancement pour le serveur : ./TCPChat ou ./TCPChat <PORT> localhost
-// Changer la commande de lancement pour le client : nc <host ip> <port>
+// Changer la commande de lancement pour le serveur : ./TCPChat <PORT> localhost
+// hostname -I Pour savori son adresse IP.
 
 package main
 
@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"os/exec"
 	"strconv"
 	"strings"
 	"sync"
@@ -32,9 +33,9 @@ _)      \.___.,|     .'
      ` + "`" + `-'       ` + "`" + `--'
 `
 
-const (
+/* const (
 	IP = "127.0.0.1"
-)
+) */
 
 // Map pour stocker toutes les connexions actives (IP, Noms)
 var clients = make(map[net.Conn]bool)
@@ -54,6 +55,7 @@ var ( // Permet d'éviter les appels de variables entre fonctions.
 	ln   net.Listener
 	port int
 	err  error
+	ip   string
 )
 
 // Historique des conversations que chaque nouvel arrivant reçoit à la connexion.
@@ -72,29 +74,44 @@ func gestionDesErreurs(err error) {
 
 func server() {
 
-	// Condition pour le PORT.
-	/* 	if len(os.Args) != 2 {
-	   		fmt.Println("[USAGE]: ./TCPChat $port")
-	   		return
-	   	} else if len(os.Args[1]) == 0 {
+	// Condition d'initialisation du serveur.
+	/* 	if len(os.Args) == 1 {
 	   		port = 8989
-	   	} else {
+	   	} else if len(os.Args) == 2 && len(os.Args[1]) == 4 {
 	   		port, err = strconv.Atoi(os.Args[1])
 	   		gestionDesErreurs(err)
+	   	} else {
+	   		fmt.Println("[USAGE]: ./TCPChat $port")
+	   		return
 	   	} */
+
+	// Execution de la commande terminale pour obtenir l'adresse IP (Seulement sur Linux et MacOS)
+	cmd := exec.Command("hostname", "-I")
+	output, err := cmd.Output()
+	gestionDesErreurs(err)
+	before, _, _ := strings.Cut(string(output), " ")
+	fmt.Printf("[SERVER]: L'adresse IP de l'ordinateur exécutant est %s \n", before)
+
+	ip := before
 
 	// Condition d'initialisation du serveur.
 	if len(os.Args) == 1 {
 		port = 8989
+		// ip = ip de l'ordinateur exécutant.
 	} else if len(os.Args) == 2 && len(os.Args[1]) == 4 {
 		port, err = strconv.Atoi(os.Args[1])
 		gestionDesErreurs(err)
+		// ip = ip de l'ordinateur exécutant.
+	} else if len(os.Args) == 3 && len(os.Args[1]) == 4 && (len(os.Args[2]) >= 7 && len(os.Args[2]) <= 15) {
+		port, err = strconv.Atoi(os.Args[1])
+		gestionDesErreurs(err)
+		ip = os.Args[2]
 	} else {
-		fmt.Println("[USAGE]: ./TCPChat $port")
+		fmt.Println("[USAGE]: ./TCPChat $port localhost")
 		return
 	}
 
-	ln, err = net.Listen("tcp", fmt.Sprintf("%s:%s", IP, strconv.Itoa(port)))
+	ln, err = net.Listen("tcp", fmt.Sprintf("%s:%s", ip, strconv.Itoa(port)))
 	gestionDesErreurs(err)
 	fmt.Println("[SERVER]: Serveur lancé.")
 	fmt.Println("[SERVER]: En attente de connexion des utilisateurs.")
@@ -128,24 +145,7 @@ func handleConnexion(connexions net.Conn) {
 
 	// Demande du nom de l'utilisateur.
 	userName := nameWithoutBlank(connexions)
-	/* 	for {
-		// Demande du nom de l'utilisateur.
-		_, err := connexions.Write([]byte("Bienvenue ! Veuillez saisir votre nom : \n"))
-		gestionDesErreurs(err)
-		// Lecture du nom de l'utilisateur.
-		name, err := connexions.Read(nameBuffer)
-		gestionDesErreurs(err)
 
-		userName := strings.TrimSpace(string(nameBuffer[:name]))
-		fmt.Println(userName)
-		if userName != "" { // Si Nom, non vide, sortie de la boucle For.
-			break
-		}
-		connexions.Write([]byte("Votre patronyme ne puis être sans caractère, veuillez retenter votre essais."))
-	} */
-	// name, err := connexions.Read(nameBuffer)
-	// gestionDesErreurs(err)
-	// userName := strings.TrimSpace(string(nameBuffer[:name]))
 	fmt.Printf("[SERVER]: Pour %s, acquisition du nom : %s \n", connexions.RemoteAddr().String(), userName)
 
 	// Stockage des noms des utilisateurs.
@@ -203,12 +203,11 @@ func nameWithoutBlank(connexions net.Conn) string {
 		name, err := connexions.Read(nameBuffer)
 		gestionDesErreurs(err)
 
-		userName = strings.TrimSpace(string(nameBuffer[:name]))
-		fmt.Println(userName)
-		if userName != "" { // Si Nom, non vide, sortie de la boucle For.
+		userName = strings.TrimSpace(string(nameBuffer[:name])) // A revoir, peut-être simplifié ?
+		if userName != "" {                                     // Si Nom, non vide, sortie de la boucle For.
 			break
 		}
-		connexions.Write([]byte("[SERVER]: Votre patronyme ne puis être sans caractère, veuillez retenter votre essais."))
+		connexions.Write([]byte("[SERVER]: Votre patronyme ne puis être sans caractère, veuillez retenter votre essais. \n"))
 	}
 	return userName
 }
