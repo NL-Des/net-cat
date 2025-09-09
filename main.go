@@ -1,5 +1,4 @@
 // MARK: Reste à faire.
-// Afficher Pingu ! Au début de la conversation.
 // Changer la commande de lancement pour le serveur : ./TCPChat ou ./TCPChat <PORT> localhost
 // Changer la commande de lancement pour le client : nc <host ip> <port>
 
@@ -30,7 +29,8 @@ const asciiArt = `
  |    ` + "`" + `.       | ` + "`" + `' \Zq
 _)      \.___.,|     .'
 \____   )MMMMMP|   .'
-     ` + "`" + `-'       ` + "`" + `--'`
+     ` + "`" + `-'       ` + "`" + `--'
+`
 
 const (
 	IP = "127.0.0.1"
@@ -73,34 +73,45 @@ func gestionDesErreurs(err error) {
 func server() {
 
 	// Condition pour le PORT.
-	if len(os.Args) != 2 {
-		fmt.Println("Usage attendu : go run main.go <8989>")
-		return
-	} else if len(os.Args[1]) == 0 {
+	/* 	if len(os.Args) != 2 {
+	   		fmt.Println("[USAGE]: ./TCPChat $port")
+	   		return
+	   	} else if len(os.Args[1]) == 0 {
+	   		port = 8989
+	   	} else {
+	   		port, err = strconv.Atoi(os.Args[1])
+	   		gestionDesErreurs(err)
+	   	} */
+
+	// Condition d'initialisation du serveur.
+	if len(os.Args) == 1 {
 		port = 8989
-	} else {
+	} else if len(os.Args) == 2 && len(os.Args[1]) == 4 {
 		port, err = strconv.Atoi(os.Args[1])
 		gestionDesErreurs(err)
+	} else {
+		fmt.Println("[USAGE]: ./TCPChat $port")
+		return
 	}
 
 	ln, err = net.Listen("tcp", fmt.Sprintf("%s:%s", IP, strconv.Itoa(port)))
 	gestionDesErreurs(err)
-	fmt.Println("Serveur lancé.")
-	fmt.Println("En attente de connexion des utilisateurs.")
+	fmt.Println("[SERVER]: Serveur lancé.")
+	fmt.Println("[SERVER]: En attente de connexion des utilisateurs.")
 
 	// Boucle pour gérer plusieurs connexions de différents clients.
 	for {
 		connexions, err := ln.Accept()
 		gestionDesErreurs(err)
 
-		fmt.Printf("Nouvelle connexion de : %s\n", connexions.RemoteAddr().String())
+		fmt.Printf("[SERVER]: Nouvelle connexion de : %s\n", connexions.RemoteAddr().String())
 
 		// Ajouter le client à la liste des clients connectés.
 		// Sécurité pour éviter que deux utilisateurs n'agissent en même temps. (mutex)
 		clientsMutex.Lock() // Bloque l'accès de la MAP clients aux goroutines
 		if len(clients) >= 10 {
 			clientsMutex.Unlock()
-			connexions.Write([]byte("Nous avons déjà 10 utilisateurs en ligne, veuillez patienter qu'une place se libère.\n"))
+			connexions.Write([]byte("[SERVER]: Nous avons déjà 10 utilisateurs en ligne, veuillez patienter qu'une place se libère.\n"))
 			connexions.Close()
 			continue
 		}
@@ -135,7 +146,7 @@ func handleConnexion(connexions net.Conn) {
 	// name, err := connexions.Read(nameBuffer)
 	// gestionDesErreurs(err)
 	// userName := strings.TrimSpace(string(nameBuffer[:name]))
-	fmt.Printf("Pour %s, acquisition du nom : %s \n", connexions.RemoteAddr().String(), userName)
+	fmt.Printf("[SERVER]: Pour %s, acquisition du nom : %s \n", connexions.RemoteAddr().String(), userName)
 
 	// Stockage des noms des utilisateurs.
 	clientsMutex.Lock()
@@ -157,7 +168,7 @@ func handleConnexion(connexions net.Conn) {
 
 	// Retire le client de la liste quand il se déconnecte.
 	defer func() {
-		fmt.Printf("Client déconnecté : %s\n", userName)
+		fmt.Printf("[SERVER]: Client déconnecté : %s\n", userName)
 		clientsMutex.Lock()
 		delete(clients, connexions)
 		delete(userNames, connexions)
@@ -186,7 +197,7 @@ func nameWithoutBlank(connexions net.Conn) string {
 		nameBuffer := make([]byte, 1024)
 
 		// Demande du nom de l'utilisateur.
-		_, err := connexions.Write([]byte("Bienvenue ! Veuillez saisir votre nom : \n"))
+		_, err := connexions.Write([]byte("[SERVER]: Bienvenue ! Veuillez saisir votre nom : \n"))
 		gestionDesErreurs(err)
 		// Lecture du nom de l'utilisateur.
 		name, err := connexions.Read(nameBuffer)
@@ -197,7 +208,7 @@ func nameWithoutBlank(connexions net.Conn) string {
 		if userName != "" { // Si Nom, non vide, sortie de la boucle For.
 			break
 		}
-		connexions.Write([]byte("Votre patronyme ne puis être sans caractère, veuillez retenter votre essais."))
+		connexions.Write([]byte("[SERVER]: Votre patronyme ne puis être sans caractère, veuillez retenter votre essais."))
 	}
 	return userName
 }
@@ -230,7 +241,7 @@ func collectiveMessageConnexion(userName string) {
 	defer clientsMutex.Unlock()
 
 	for client := range clients {
-		_, err := client.Write([]byte(fmt.Sprintf("[Serveur] : Veuillez accueillir comme il se le doit : %s \n", userName)))
+		_, err := client.Write([]byte(fmt.Sprintf("[SERVER] : Veuillez accueillir comme il se le doit : %s \n", userName)))
 		gestionDesErreurs(err)
 	}
 }
@@ -241,7 +252,7 @@ func collectiveMessageDeconnexion(userName string) {
 	defer clientsMutex.Unlock()
 
 	for client := range clients {
-		_, err := client.Write([]byte(fmt.Sprintf("[Serveur] : Que nenni ?! Un folâtre prendre campagne ! Diable, en voilà un apache. Que son nom soit connu de tous pour sa vilenie : %s \n", userName)))
+		_, err := client.Write([]byte(fmt.Sprintf("[SERVER] : Que nenni ?! Un folâtre prendre campagne ! Diable, en voilà un apache. Que son nom soit connu de tous pour sa vilenie : %s \n", userName)))
 		gestionDesErreurs(err)
 	}
 }
