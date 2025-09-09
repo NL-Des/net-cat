@@ -6,14 +6,11 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"os/exec"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
-)
-
-const (
-	IP = "127.0.0.1"
 )
 
 // Map pour stocker toutes les connexions actives (IP, Noms)
@@ -51,6 +48,16 @@ func gestionDesErreurs(err error) {
 }
 
 func server() {
+	cmd := exec.Command("hostname", "-I") // Pour Linux et MacOS.
+	output, err := cmd.Output()
+	before, _, _ := strings.Cut(string(output), " ")
+	if err != nil {
+		fmt.Println("Erreur :", err)
+		return
+	}
+	fmt.Println(before)
+
+	IP := before
 
 	// Condition pour le PORT.
 	if len(os.Args) != 2 {
@@ -91,21 +98,6 @@ func handleConnexion(connexions net.Conn) {
 
 	// Demande du nom de l'utilisateur.
 	userName := nameWithoutBlank(connexions)
-	/* 	for {
-		// Demande du nom de l'utilisateur.
-		_, err := connexions.Write([]byte("Bienvenue ! Veuillez saisir votre nom : \n"))
-		gestionDesErreurs(err)
-		// Lecture du nom de l'utilisateur.
-		name, err := connexions.Read(nameBuffer)
-		gestionDesErreurs(err)
-
-		userName := strings.TrimSpace(string(nameBuffer[:name]))
-		fmt.Println(userName)
-		if userName != "" { // Si Nom, non vide, sortie de la boucle For.
-			break
-		}
-		connexions.Write([]byte("Votre patronyme ne puis être sans caractère, veuillez retenter votre essais."))
-	} */
 	// name, err := connexions.Read(nameBuffer)
 	// gestionDesErreurs(err)
 	// userName := strings.TrimSpace(string(nameBuffer[:name]))
