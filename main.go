@@ -15,6 +15,23 @@ import (
 	"time"
 )
 
+const asciiArt = `
+        dGGGGMMb
+       @p~qp~~qMb
+       M|@||@) M|
+       @,----.JM|
+      JS^\__/  qKL
+     dZP        qKRb
+    dZP          qKKb
+   fZP            SMMb
+   HZM            MMMM
+   FqM            MMMM
+ __| ".        |\dS"qML
+ |    ` + "`" + `.       | ` + "`" + `' \Zq
+_)      \.___.,|     .'
+\____   )MMMMMP|   .'
+     ` + "`" + `-'       ` + "`" + `--'`
+
 const (
 	IP = "127.0.0.1"
 )
@@ -134,6 +151,9 @@ func handleConnexion(connexions net.Conn) {
 		gestionDesErreurs(err)
 	}
 	clientsMutex.Unlock()
+
+	// Envoi au nouvel utilisateur du Pingouin en Ascii-Art.
+	connexions.Write([]byte(asciiArt))
 
 	// Retire le client de la liste quand il se déconnecte.
 	defer func() {
