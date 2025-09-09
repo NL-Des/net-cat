@@ -1,5 +1,8 @@
 // MARK: Reste à faire.
-// Limiter à 10 connexions.
+// Afficher Pingu ! Au début de la conversation.
+// Changer la commande de lancement pour le serveur : ./TCPChat ou ./TCPChat <PORT> localhost
+// Changer la commande de lancement pour le client : nc <host ip> <port>
+
 package main
 
 import (
@@ -77,7 +80,13 @@ func server() {
 
 		// Ajouter le client à la liste des clients connectés.
 		// Sécurité pour éviter que deux utilisateurs n'agissent en même temps. (mutex)
-		clientsMutex.Lock()        // Bloque l'accès de la MAP clients aux goroutines
+		clientsMutex.Lock() // Bloque l'accès de la MAP clients aux goroutines
+		if len(clients) >= 10 {
+			clientsMutex.Unlock()
+			connexions.Write([]byte("Nous avons déjà 10 utilisateurs en ligne, veuillez patienter qu'une place se libère.\n"))
+			connexions.Close()
+			continue
+		}
 		clients[connexions] = true // Dans la MAP clients l'utilisateur est enregistré comme actif.
 		clientsMutex.Unlock()      // Re-ouvre l'accès au goroutines de Clients.
 
@@ -212,7 +221,7 @@ func collectiveMessageDeconnexion(userName string) {
 	defer clientsMutex.Unlock()
 
 	for client := range clients {
-		_, err := client.Write([]byte(fmt.Sprintf("[Serveur] : Que nenni ?! Un folâtre osa partir ! Diable, en voilà un apache. Que son nom soit connu de tous pour sa vilenie : %s \n", userName)))
+		_, err := client.Write([]byte(fmt.Sprintf("[Serveur] : Que nenni ?! Un folâtre prendre campagne ! Diable, en voilà un apache. Que son nom soit connu de tous pour sa vilenie : %s \n", userName)))
 		gestionDesErreurs(err)
 	}
 }
