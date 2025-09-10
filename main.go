@@ -108,15 +108,17 @@ func handleConnexion(connexions net.Conn) {
 	userNames[connexions] = userName
 	clientsMutex.Unlock()
 
-	collectiveMessageConnexion(userName)
+	//collectiveMessageConnexion(userName)
 
 	// Envoi de l'historique des conversations au nouvel arrivant.
 	clientsMutex.Lock()
-	for _, msg := range historique {
-		_, err := connexions.Write([]byte(fmt.Sprintf("[%s]: %s\n", msg.ComeFrom, msg.Content)))
+	for i := 0; i < len(historique); i++ {
+		_, err := connexions.Write([]byte(fmt.Sprintf("[%s]: %s", historique[i].ComeFrom, historique[i].Content)))
 		gestionDesErreurs(err)
 	}
 	clientsMutex.Unlock()
+
+	collectiveMessageConnexion(userName)
 
 	// Retire le client de la liste quand il se déconnecte.
 	defer func() {
@@ -221,13 +223,13 @@ func messageHandler() {
 // Envoi du message collectif d'accueil.
 func collectiveMessageConnexion(userName string) {
 	clientsMutex.Lock()
+	historique = append(historique, Message{ComeFrom: "Serveur", Content: fmt.Sprintf("Veuillez accueillir comme il se le doit : %s \n", userName)})
 	defer clientsMutex.Unlock()
 
 	for client := range clients {
 		_, err := client.Write([]byte(fmt.Sprintf("[Serveur] : Veuillez accueillir comme il se le doit : %s \n", userName)))
 		gestionDesErreurs(err)
 	}
-	historique = append(historique, Message{ComeFrom: "Serveur", Content: fmt.Sprintf("Veuillez accueillir comme il se le doit : %s \n", userName)})
 }
 
 func collectiveMessageRename(userName string, oldUserName string) {
