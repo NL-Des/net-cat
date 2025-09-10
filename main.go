@@ -137,12 +137,43 @@ func handleConnexion(connexions net.Conn) {
 			return // Le client s'est déconnecté
 		}
 		content := string(byteMessage[:n])
+		if strings.HasPrefix(content, ":/rename") {
+			oldUserName := userNames[connexions]
+			userName = Rename(connexions)
+			clientsMutex.Lock()
+			userNames[connexions] = userName
+			clientsMutex.Unlock()
+			collectiveMessageRename(userName, oldUserName)
+			continue
+		}
 		// Envoyer le message dans le canal pour diffusion
 		channels <- Message{ComeFrom: userNames[connexions], Content: content}
 	}
 }
 
 // Interdiction de Nom Vide pour l'utilisateur.
+func Rename(connexions net.Conn) string {
+	var userName string
+	for {
+		nameBuffer := make([]byte, 1024)
+
+		// Demande du nom de l'utilisateur.
+		_, err := connexions.Write([]byte("Vous voulez changer de nom ? Pas de soucis, comment voulez vous vous rennomez ? \n"))
+		gestionDesErreurs(err)
+		// Lecture du nom de l'utilisateur.
+		name, err := connexions.Read(nameBuffer)
+		gestionDesErreurs(err)
+
+		userName = strings.TrimSpace(string(nameBuffer[:name]))
+		fmt.Println(userName)
+		if userName != "" { // Si Nom, non vide, sortie de la boucle For.
+			break
+		}
+		connexions.Write([]byte("Votre patronyme ne puis être sans caractère, veuillez retenter votre essais."))
+	}
+	return userName
+}
+
 func nameWithoutBlank(connexions net.Conn) string {
 	var userName string
 	for {
@@ -196,6 +227,18 @@ func collectiveMessageConnexion(userName string) {
 		_, err := client.Write([]byte(fmt.Sprintf("[Serveur] : Veuillez accueillir comme il se le doit : %s \n", userName)))
 		gestionDesErreurs(err)
 	}
+	historique = append(historique, Message{ComeFrom: "Serveur", Content: fmt.Sprintf("Veuillez accueillir comme il se le doit : %s \n", userName)})
+}
+
+func collectiveMessageRename(userName string, oldUserName string) {
+	clientsMutex.Lock()
+	defer clientsMutex.Unlock()
+
+	for client := range clients {
+		_, err := client.Write([]byte(fmt.Sprintf("[Serveur] : Notre bien aimé %s se prénome maintenant %s \n", oldUserName, userName)))
+		gestionDesErreurs(err)
+	}
+	historique = append(historique, Message{ComeFrom: "Serveur", Content: fmt.Sprintf("Notre bien aimé %s se prénome maintenant %s \n", oldUserName, userName)})
 }
 
 // Envoi du message collectif de départ.
@@ -207,4 +250,5 @@ func collectiveMessageDeconnexion(userName string) {
 		_, err := client.Write([]byte(fmt.Sprintf("[Serveur] : Que nenni ?! Un folâtre osa partir ! Diable, en voilà un apache. Que son nom soit connu de tous pour sa vilenie : %s \n", userName)))
 		gestionDesErreurs(err)
 	}
+	historique = append(historique, Message{ComeFrom: "Serveur", Content: fmt.Sprintf("Que nenni ?! Un folâtre osa partir ! Diable, en voilà un apache. Que son nom soit connu de tous pour sa vilenie : %s \n", userName)})
 }
