@@ -1,5 +1,6 @@
-// MARK: Reste à faire.
-// Changer la commande de lancement pour le serveur : ./TCPChat <PORT> localhost
+// MARK: Instructions
+// Commande de lancement pour le serveur : ./TCPChat <PORT>
+// Commande de connection du client au serveur : nc  localhost <PORT>
 
 package main
 
@@ -76,16 +77,6 @@ func gestionDesErreurs(err error) {
 
 // MARK: Serveur
 func server() {
-	cmd := exec.Command("hostname", "-I") // Pour Linux et MacOS.
-	output, err := cmd.Output()
-	before, _, _ := strings.Cut(string(output), " ")
-	if err != nil {
-		fmt.Println("Erreur :", err)
-		return
-	}
-	fmt.Println(before)
-
-	IP := before
 
 	// Execution de la commande dans le terminal pour obtenir l'adresse IP locale (Seulement sur Linux et MacOS).
 	cmd := exec.Command("hostname", "-I")
@@ -194,7 +185,7 @@ func handleConnexion(connexions net.Conn) {
 			return
 		}
 		content := string(byteMessage[:n])
-    
+
 		if strings.HasPrefix(content, ":/rename") {
 			oldUserName := userNames[connexions]
 			userName = Rename(connexions)
