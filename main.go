@@ -1,6 +1,5 @@
 // MARK: Reste à faire.
 // Changer la commande de lancement pour le serveur : ./TCPChat <PORT> localhost
-// hostname -I Pour savori son adresse IP.
 
 package main
 
@@ -15,6 +14,8 @@ import (
 	"time"
 )
 
+// MARK: Dessin d'accueil
+// émis une fois le nom d'utilisateur choisit.
 const asciiArt = `
         dGGGGMMb
        @p~qp~~qMb
@@ -33,13 +34,12 @@ _)      \.___.,|     .'
      ` + "`" + `-'       ` + "`" + `--'
 `
 
-/* const (
-	IP = "127.0.0.1"
-) */
-
-// Map pour stocker toutes les connexions actives (IP, Noms)
+// MARK: Map et variables
+// Pour stocker toutes les connexions actives (IP, Noms)
 var clients = make(map[net.Conn]bool)
 var userNames = make(map[net.Conn]string)
+
+// Permet de bloquer toutes les goroutines pour exécuter l'opération désirée.
 var clientsMutex sync.Mutex
 
 // Origine et contenu du message.
@@ -51,50 +51,40 @@ type Message struct {
 // Canal global de circulation des messages.
 var channels = make(chan Message)
 
-var ( // Permet d'éviter les appels de variables entre fonctions.
+// Permet d'éviter les appels/créations de variables entre fonctions.
+var (
 	ln   net.Listener
 	port int
-	err  error
-	ip   string
 )
 
 // Historique des conversations que chaque nouvel arrivant reçoit à la connexion.
 var historique []Message
 
+// MARK: Main
 func main() {
-	go messageHandler()
+	go messageHandler() // goroutines tourne en arrière fond pour gérer tous les messages.
 	server()
 }
 
+// MARK: Erreurs
 func gestionDesErreurs(err error) {
 	if err != nil {
 		panic(err)
 	}
 }
 
+// MARK: Serveur
 func server() {
 
-	// Condition d'initialisation du serveur.
-	/* 	if len(os.Args) == 1 {
-	   		port = 8989
-	   	} else if len(os.Args) == 2 && len(os.Args[1]) == 4 {
-	   		port, err = strconv.Atoi(os.Args[1])
-	   		gestionDesErreurs(err)
-	   	} else {
-	   		fmt.Println("[USAGE]: ./TCPChat $port")
-	   		return
-	   	} */
-
-	// Execution de la commande terminale pour obtenir l'adresse IP (Seulement sur Linux et MacOS)
+	// Execution de la commande dans le terminal pour obtenir l'adresse IP locale (Seulement sur Linux et MacOS).
 	cmd := exec.Command("hostname", "-I")
 	output, err := cmd.Output()
 	gestionDesErreurs(err)
 	before, _, _ := strings.Cut(string(output), " ")
-	fmt.Printf("[SERVER]: L'adresse IP de l'ordinateur exécutant est %s \n", before)
-
+	fmt.Printf("[SERVER]: L'adresse IP de l'ordinateur exécutant le programme est %s \n", before)
 	ip := before
 
-	// Condition d'initialisation du serveur.
+	// Condition d'initialisation du serveur à partir de la commande : ./TCPChat <PORT> localhost
 	if len(os.Args) == 1 {
 		port = 8989
 		// ip = ip de l'ordinateur exécutant.
@@ -102,14 +92,17 @@ func server() {
 		port, err = strconv.Atoi(os.Args[1])
 		gestionDesErreurs(err)
 		// ip = ip de l'ordinateur exécutant.
-	} else if len(os.Args) == 3 && len(os.Args[1]) == 4 && (len(os.Args[2]) >= 7 && len(os.Args[2]) <= 15) {
+		// Option si l'on veut pouvoir rajouter une adresse IP à la main.
+		/* 	} else if len(os.Args) == 3 && len(os.Args[1]) == 4 && (len(os.Args[2]) >= 7 && len(os.Args[2]) <= 15) {
 		port, err = strconv.Atoi(os.Args[1])
 		gestionDesErreurs(err)
-		ip = os.Args[2]
+		ip = os.Args[2] */
 	} else {
-		fmt.Println("[USAGE]: ./TCPChat $port localhost")
+		fmt.Println("[USAGE]: ./TCPChat $port")
 		return
 	}
+
+	fmt.Printf("[SERVER]: Le PORT de connexion est %d \n", port)
 
 	ln, err = net.Listen("tcp", fmt.Sprintf("%s:%s", ip, strconv.Itoa(port)))
 	gestionDesErreurs(err)
@@ -125,7 +118,7 @@ func server() {
 
 		// Ajouter le client à la liste des clients connectés.
 		// Sécurité pour éviter que deux utilisateurs n'agissent en même temps. (mutex)
-		clientsMutex.Lock() // Bloque l'accès de la MAP clients aux goroutines
+		clientsMutex.Lock() // Bloque toutes les goroutines.
 		if len(clients) >= 10 {
 			clientsMutex.Unlock()
 			connexions.Write([]byte("[SERVER]: Nous avons déjà 10 utilisateurs en ligne, veuillez patienter qu'une place se libère.\n"))
@@ -133,15 +126,19 @@ func server() {
 			continue
 		}
 		clients[connexions] = true // Dans la MAP clients l'utilisateur est enregistré comme actif.
-		clientsMutex.Unlock()      // Re-ouvre l'accès au goroutines de Clients.
+		clientsMutex.Unlock()      // Re-ouvre l'accès au goroutines.
 
 		// Utilisation de go routines pour gérer plusieurs clients en même temps.
 		go handleConnexion(connexions)
 	}
 }
 
-// Gestion des connexions.
+// MARK: Gestion des connexions
+// initialisation d'une fonction par utilisateur.
 func handleConnexion(connexions net.Conn) {
+
+	// Envoi au nouvel utilisateur du Pingouin en Ascii-Art.
+	connexions.Write([]byte(asciiArt))
 
 	// Demande du nom de l'utilisateur.
 	userName := nameWithoutBlank(connexions)
@@ -163,10 +160,9 @@ func handleConnexion(connexions net.Conn) {
 	}
 	clientsMutex.Unlock()
 
-	// Envoi au nouvel utilisateur du Pingouin en Ascii-Art.
-	connexions.Write([]byte(asciiArt))
-
 	// Retire le client de la liste quand il se déconnecte.
+	// C'est une fonction anonyme.
+	// defer func va s'éxécuter une fois que la fonction où elle se trouve se termine.
 	defer func() {
 		fmt.Printf("[SERVER]: Client déconnecté : %s\n", userName)
 		clientsMutex.Lock()
@@ -182,17 +178,20 @@ func handleConnexion(connexions net.Conn) {
 	for {
 		n, err := connexions.Read(byteMessage)
 		if err != nil {
-			return // Le client s'est déconnecté
+			return
 		}
 		content := string(byteMessage[:n])
-		// Envoyer le message dans le canal pour diffusion
+		// Envoye le message dans le canal pour diffusion.
 		channels <- Message{ComeFrom: userNames[connexions], Content: content}
 	}
 }
 
-// Interdiction de Nom Vide pour l'utilisateur.
+// MARK: Nom utilisateur
+// L'utilisateur doit définir un Nom, non vide.
 func nameWithoutBlank(connexions net.Conn) string {
+
 	var userName string
+
 	for {
 		nameBuffer := make([]byte, 1024)
 
@@ -203,26 +202,28 @@ func nameWithoutBlank(connexions net.Conn) string {
 		name, err := connexions.Read(nameBuffer)
 		gestionDesErreurs(err)
 
-		userName = strings.TrimSpace(string(nameBuffer[:name])) // A revoir, peut-être simplifié ?
-		if userName != "" {                                     // Si Nom, non vide, sortie de la boucle For.
+		userName = strings.TrimSpace(string(nameBuffer[:name]))
+		if userName != "" { // Si Nom, non vide, sortie de la boucle For.
 			break
 		}
-		connexions.Write([]byte("[SERVER]: Votre patronyme ne puis être sans caractère, veuillez retenter votre essais. \n"))
+		connexions.Write([]byte("[SERVER]: Votre patronyme ne puis être sans caractère, Keep Calm and Proceed. \n"))
 	}
 	return userName
 }
 
-// Gestionnaire de messages qui diffuse les messages à tous les clients
+// MARK: Transmission des messages
+// Gestionnaire de messages qui diffuse le massage d'un client à tous les clients.
 func messageHandler() {
 	for {
 		msg := <-channels
-		fmt.Printf("[%s] a envoyé : %s", msg.ComeFrom, msg.Content)
-		historique = append(historique, msg) // Pour archiver les conversations.
+		timeLog := time.Now().Format("[2006-01-02 15:04:05]")
+		fmt.Printf("%s[%s]: %s", timeLog, msg.ComeFrom, msg.Content) // écriture partie terminal du serveur.
+		historique = append(historique, msg)                         // Pour archiver les messages.
 
 		// Diffuser le message à tous les clients connectés
 		clientsMutex.Lock()
 		for client := range clients {
-			timeLog := time.Now().Format("[2006-01-02 15:04:05]")
+			// timeLog := time.Now().Format("[2006-01-02 15:04:05]")
 			_, err := client.Write([]byte(fmt.Sprintf("%s[%s]: %s", timeLog, msg.ComeFrom, msg.Content)))
 			if err != nil {
 				// Si l'écriture échoue, supprimer le client de la struct.
@@ -234,6 +235,7 @@ func messageHandler() {
 	}
 }
 
+// MARK: Message d'accueil
 // Envoi du message collectif d'accueil.
 func collectiveMessageConnexion(userName string) {
 	clientsMutex.Lock()
@@ -243,8 +245,13 @@ func collectiveMessageConnexion(userName string) {
 		_, err := client.Write([]byte(fmt.Sprintf("[SERVER] : Veuillez accueillir comme il se le doit : %s \n", userName)))
 		gestionDesErreurs(err)
 	}
+	/* var message []Message
+	historique = append(historique, msg)
+	fmt.Printf(msg.ComeFrom)
+	fmt.Printf(msg.Content) */
 }
 
+// MARK: Message de départ
 // Envoi du message collectif de départ.
 func collectiveMessageDeconnexion(userName string) {
 	clientsMutex.Lock()
