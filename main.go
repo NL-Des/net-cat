@@ -36,6 +36,7 @@ _)      \.___.,|     .'
 
 // MARK: Map et variables
 // Pour stocker toutes les connexions actives (IP, Noms)
+
 var clients = make(map[net.Conn]bool)
 var userNames = make(map[net.Conn]string)
 
@@ -75,6 +76,16 @@ func gestionDesErreurs(err error) {
 
 // MARK: Serveur
 func server() {
+	cmd := exec.Command("hostname", "-I") // Pour Linux et MacOS.
+	output, err := cmd.Output()
+	before, _, _ := strings.Cut(string(output), " ")
+	if err != nil {
+		fmt.Println("Erreur :", err)
+		return
+	}
+	fmt.Println(before)
+
+	IP := before
 
 	// Execution de la commande dans le terminal pour obtenir l'adresse IP locale (Seulement sur Linux et MacOS).
 	cmd := exec.Command("hostname", "-I")
@@ -150,15 +161,17 @@ func handleConnexion(connexions net.Conn) {
 	userNames[connexions] = userName
 	clientsMutex.Unlock()
 
-	collectiveMessageConnexion(userName)
+	//collectiveMessageConnexion(userName)
 
 	// Envoi de l'historique des conversations au nouvel arrivant.
 	clientsMutex.Lock()
-	for _, msg := range historique {
-		_, err := connexions.Write([]byte(fmt.Sprintf("[%s]: %s\n", msg.ComeFrom, msg.Content)))
+	for i := 0; i < len(historique); i++ {
+		_, err := connexions.Write([]byte(fmt.Sprintf("[%s]: %s", historique[i].ComeFrom, historique[i].Content)))
 		gestionDesErreurs(err)
 	}
 	clientsMutex.Unlock()
+
+	collectiveMessageConnexion(userName)
 
 	// Retire le client de la liste quand il se déconnecte.
 	// C'est une fonction anonyme.
@@ -181,13 +194,45 @@ func handleConnexion(connexions net.Conn) {
 			return
 		}
 		content := string(byteMessage[:n])
-		// Envoye le message dans le canal pour diffusion.
+    
+		if strings.HasPrefix(content, ":/rename") {
+			oldUserName := userNames[connexions]
+			userName = Rename(connexions)
+			clientsMutex.Lock()
+			userNames[connexions] = userName
+			clientsMutex.Unlock()
+			collectiveMessageRename(userName, oldUserName)
+			continue
+		}
+		// Envoyer le message dans le canal pour diffusion
 		channels <- Message{ComeFrom: userNames[connexions], Content: content}
 	}
 }
 
 // MARK: Nom utilisateur
 // L'utilisateur doit définir un Nom, non vide.
+func Rename(connexions net.Conn) string {
+	var userName string
+	for {
+		nameBuffer := make([]byte, 1024)
+
+		// Demande du nom de l'utilisateur.
+		_, err := connexions.Write([]byte("Vous voulez changer de nom ? Pas de soucis, comment voulez vous vous rennomez ? \n"))
+		gestionDesErreurs(err)
+		// Lecture du nom de l'utilisateur.
+		name, err := connexions.Read(nameBuffer)
+		gestionDesErreurs(err)
+
+		userName = strings.TrimSpace(string(nameBuffer[:name]))
+		fmt.Println(userName)
+		if userName != "" { // Si Nom, non vide, sortie de la boucle For.
+			break
+		}
+		connexions.Write([]byte("Votre patronyme ne puis être sans caractère, veuillez retenter votre essais."))
+	}
+	return userName
+}
+
 func nameWithoutBlank(connexions net.Conn) string {
 
 	var userName string
@@ -239,6 +284,7 @@ func messageHandler() {
 // Envoi du message collectif d'accueil.
 func collectiveMessageConnexion(userName string) {
 	clientsMutex.Lock()
+	historique = append(historique, Message{ComeFrom: "Serveur", Content: fmt.Sprintf("Veuillez accueillir comme il se le doit : %s \n", userName)})
 	defer clientsMutex.Unlock()
 
 	for client := range clients {
@@ -252,6 +298,17 @@ func collectiveMessageConnexion(userName string) {
 }
 
 // MARK: Message de départ
+func collectiveMessageRename(userName string, oldUserName string) {
+	clientsMutex.Lock()
+	defer clientsMutex.Unlock()
+
+	for client := range clients {
+		_, err := client.Write([]byte(fmt.Sprintf("[Serveur] : Notre bien aimé %s se prénome maintenant %s \n", oldUserName, userName)))
+		gestionDesErreurs(err)
+	}
+	historique = append(historique, Message{ComeFrom: "Serveur", Content: fmt.Sprintf("Notre bien aimé %s se prénome maintenant %s \n", oldUserName, userName)})
+}
+
 // Envoi du message collectif de départ.
 func collectiveMessageDeconnexion(userName string) {
 	clientsMutex.Lock()
@@ -261,4 +318,5 @@ func collectiveMessageDeconnexion(userName string) {
 		_, err := client.Write([]byte(fmt.Sprintf("[SERVER] : Que nenni ?! Un folâtre prendre campagne ! Diable, en voilà un apache. Que son nom soit connu de tous pour sa vilenie : %s \n", userName)))
 		gestionDesErreurs(err)
 	}
+	historique = append(historique, Message{ComeFrom: "Serveur", Content: fmt.Sprintf("Que nenni ?! Un folâtre osa partir ! Diable, en voilà un apache. Que son nom soit connu de tous pour sa vilenie : %s \n", userName)})
 }
