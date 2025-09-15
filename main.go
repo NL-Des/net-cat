@@ -48,6 +48,7 @@ var clientsMutex sync.Mutex
 type Message struct {
 	ComeFrom string
 	Content  string
+	timer    string
 }
 
 // Canal global de circulation des messages.
@@ -157,7 +158,7 @@ func handleConnexion(connexions net.Conn) {
 	// Envoi de l'historique des conversations au nouvel arrivant.
 	clientsMutex.Lock()
 	for i := 0; i < len(historique); i++ {
-		_, err := connexions.Write([]byte(fmt.Sprintf("[%s]: %s", historique[i].ComeFrom, historique[i].Content)))
+		_, err := connexions.Write([]byte(fmt.Sprintf("%s[%s]: %s", historique[i].timer, historique[i].ComeFrom, historique[i].Content)))
 		gestionDesErreurs(err)
 	}
 	clientsMutex.Unlock()
@@ -185,6 +186,9 @@ func handleConnexion(connexions net.Conn) {
 			return
 		}
 		content := string(byteMessage[:n])
+		if content == "\n" {
+			continue
+		}
 
 		if strings.HasPrefix(content, ":/rename") {
 			oldUserName := userNames[connexions]
@@ -253,8 +257,8 @@ func messageHandler() {
 	for {
 		msg := <-channels
 		timeLog := time.Now().Format("[2006-01-02 15:04:05]")
-		fmt.Printf("%s[%s]: %s", timeLog, msg.ComeFrom, msg.Content) // écriture partie terminal du serveur.
-		historique = append(historique, msg)                         // Pour archiver les messages.
+		fmt.Printf("%s[%s]: %s", timeLog, msg.ComeFrom, msg.Content)                                           // écriture partie terminal du serveur.
+		historique = append(historique, Message{ComeFrom: msg.ComeFrom, Content: msg.Content, timer: timeLog}) // Pour archiver les messages.
 
 		// Diffuser le message à tous les clients connectés
 		clientsMutex.Lock()
@@ -275,11 +279,11 @@ func messageHandler() {
 // Envoi du message collectif d'accueil.
 func collectiveMessageConnexion(userName string) {
 	clientsMutex.Lock()
-	historique = append(historique, Message{ComeFrom: "Serveur", Content: fmt.Sprintf("Veuillez accueillir comme il se le doit : %s \n", userName)})
+	historique = append(historique, Message{ComeFrom: "Serveur", timer: fmt.Sprint(time.Now().Format("[2006-01-02 15:04:05]")), Content: fmt.Sprintf("Veuillez accueillir comme il se le doit : %s \n", userName)})
 	defer clientsMutex.Unlock()
 
 	for client := range clients {
-		_, err := client.Write([]byte(fmt.Sprintf("[SERVER] : Veuillez accueillir comme il se le doit : %s \n", userName)))
+		_, err := client.Write([]byte(fmt.Sprintf(time.Now().Format("[2006-01-02 15:04:05]")+"[SERVER] : Veuillez accueillir comme il se le doit : %s \n", userName)))
 		gestionDesErreurs(err)
 	}
 	/* var message []Message
@@ -294,10 +298,10 @@ func collectiveMessageRename(userName string, oldUserName string) {
 	defer clientsMutex.Unlock()
 
 	for client := range clients {
-		_, err := client.Write([]byte(fmt.Sprintf("[Serveur] : Notre bien aimé %s se prénome maintenant %s \n", oldUserName, userName)))
+		_, err := client.Write([]byte(fmt.Sprintf(time.Now().Format("[2006-01-02 15:04:05]")+"[Serveur] : Notre bien aimé %s se prénome maintenant %s \n", oldUserName, userName)))
 		gestionDesErreurs(err)
 	}
-	historique = append(historique, Message{ComeFrom: "Serveur", Content: fmt.Sprintf("Notre bien aimé %s se prénome maintenant %s \n", oldUserName, userName)})
+	historique = append(historique, Message{ComeFrom: "Serveur", timer: fmt.Sprint(time.Now().Format("[2006-01-02 15:04:05]")), Content: fmt.Sprintf("Notre bien aimé %s se prénome maintenant %s \n", oldUserName, userName)})
 }
 
 // Envoi du message collectif de départ.
@@ -306,8 +310,8 @@ func collectiveMessageDeconnexion(userName string) {
 	defer clientsMutex.Unlock()
 
 	for client := range clients {
-		_, err := client.Write([]byte(fmt.Sprintf("[SERVER] : Que nenni ?! Un folâtre prendre campagne ! Diable, en voilà un apache. Que son nom soit connu de tous pour sa vilenie : %s \n", userName)))
+		_, err := client.Write([]byte(fmt.Sprintf(time.Now().Format("[2006-01-02 15:04:05]")+"[SERVER] : Que nenni ?! Un folâtre prendre campagne ! Diable, en voilà un apache. Que son nom soit connu de tous pour sa vilenie : %s \n", userName)))
 		gestionDesErreurs(err)
 	}
-	historique = append(historique, Message{ComeFrom: "Serveur", Content: fmt.Sprintf("Que nenni ?! Un folâtre osa partir ! Diable, en voilà un apache. Que son nom soit connu de tous pour sa vilenie : %s \n", userName)})
+	historique = append(historique, Message{ComeFrom: "Serveur", timer: fmt.Sprint(time.Now().Format("[2006-01-02 15:04:05]")), Content: fmt.Sprintf("Que nenni ?! Un folâtre osa partir ! Diable, en voilà un apache. Que son nom soit connu de tous pour sa vilenie : %s \n", userName)})
 }
