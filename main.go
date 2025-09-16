@@ -238,17 +238,37 @@ func nameWithoutBlank(connexions net.Conn) string {
 		// Demande du nom de l'utilisateur.
 		_, err := connexions.Write([]byte("[SERVER]: Bienvenue ! Veuillez saisir votre nom : \n"))
 		gestionDesErreurs(err)
+
 		// Lecture du nom de l'utilisateur.
 		name, err := connexions.Read(nameBuffer)
 		gestionDesErreurs(err)
 
 		userName = strings.TrimSpace(string(nameBuffer[:name]))
-		if userName != "" { // Si Nom, non vide, sortie de la boucle For.
-			break
+
+		if userName == "" { // Si Nom, non vide, sortie de la boucle for.
+			connexions.Write([]byte("[SERVER]: Votre patronyme ne puis être sans caractère, Keep Calm and Proceed. \n"))
+			continue
 		}
-		connexions.Write([]byte("[SERVER]: Votre patronyme ne puis être sans caractère, Keep Calm and Proceed. \n"))
+		if nameAlreadyPresent(userName) { // Si Nom en double.
+			connexions.Write([]byte("[SERVER]: Nom déjà utilisé, veuillez en saisir un autre. \n"))
+			continue
+		}
+
+		//Si le nom est valide et unique.
+		break
 	}
+
 	return userName
+}
+
+// MARK: Nom déjà présent.
+func nameAlreadyPresent(userName string) bool {
+	for _, nameBis := range userNames {
+		if userName == nameBis { // Si nom existe déjà, sortie de la boucle for.
+			return true
+		}
+	}
+	return false
 }
 
 // MARK: Transmission des messages
